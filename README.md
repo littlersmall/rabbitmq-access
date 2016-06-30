@@ -1,8 +1,11 @@
 ![rabbitmq.png](http://upload-images.jianshu.io/upload_images/1397675-8f305b180a895baf.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
+
 最近的一个计费项目，在rpc调用和流式处理之间徘徊了许久，后来选择流式处理。一是可以增加吞吐量，二是事务的控制相比于rpc要容易很多。
 确定了流式处理的方式，后续是技术的选型。刚开始倾向于用storm，无奈文档实在太少，折腾起来着实费劲。最终放弃，改用消息队列+微服务的方式实现。
+
 消息队列的选型上，有activemq，rabbitmq，kafka等。最开始倾向于用activemq，因为以前的项目用过，很多代码都是可直接复用的。后来看了不少文章对比，发现rabbitmq对多语言的支持更好一点，同时相比于kafka，牺牲了部分的性能换取了更好的稳定性安全性以及持久化。
 最终决定使用rabbitmq。
+
 rabbitmq的官网如下：
 >https://www.rabbitmq.com/
 
