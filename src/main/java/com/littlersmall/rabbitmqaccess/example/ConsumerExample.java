@@ -5,6 +5,8 @@ import com.littlersmall.rabbitmqaccess.MessageConsumer;
 import com.littlersmall.rabbitmqaccess.common.DetailRes;
 import org.springframework.amqp.rabbit.connection.ConnectionFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.ApplicationContext;
+import org.springframework.context.support.ClassPathXmlApplicationContext;
 import org.springframework.stereotype.Service;
 
 import javax.annotation.PostConstruct;
@@ -33,5 +35,12 @@ public class ConsumerExample {
 
     public DetailRes consume() {
         return messageConsumer.consume();
+    }
+
+    public static void main(String[] args) throws IOException {
+        ApplicationContext ac = new ClassPathXmlApplicationContext("applicationContext.xml");
+        ConsumerExample consumerExample = ac.getBean(ConsumerExample.class);
+
+
     }
 }

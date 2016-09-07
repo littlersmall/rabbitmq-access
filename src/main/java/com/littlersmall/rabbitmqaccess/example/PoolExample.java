@@ -53,7 +53,7 @@ public class PoolExample {
         PoolExample poolExample = ac.getBean(PoolExample.class);
         final SenderExample senderExample = ac.getBean(SenderExample.class);
 
-        poolExample.start();
+        //poolExample.start();
 
         new Thread(new Runnable() {
             int id = 0;

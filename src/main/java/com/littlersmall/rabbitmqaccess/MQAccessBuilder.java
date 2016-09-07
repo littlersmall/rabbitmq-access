@@ -1,9 +1,10 @@
 package com.littlersmall.rabbitmqaccess;
 
+import com.littlersmall.rabbitmqaccess.common.Constants;
 import com.littlersmall.rabbitmqaccess.common.DetailRes;
 import com.rabbitmq.client.*;
-import lombok.extern.java.Log;
-import org.springframework.amqp.core.*;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.amqp.core.Message;
 import org.springframework.amqp.rabbit.connection.Connection;
 import org.springframework.amqp.rabbit.connection.ConnectionFactory;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
@@ -19,7 +20,7 @@ import java.util.concurrent.TimeoutException;
 /**
  * Created by littlersmall on 16/5/11.
  */
-@Log
+@Slf4j
 public class MQAccessBuilder {
     private ConnectionFactory connectionFactory;
 
@@ -31,7 +32,7 @@ public class MQAccessBuilder {
     //2 设置message序列化方法
     //3 设置发送确认
     //4 构造sender方法
-    public MessageSender buildMessageSender(final String exchange, final String routingKey, final String queue) throws IOException, TimeoutException {
+    public MessageSender buildMessageSender(final String exchange, final String routingKey, final String queue) throws IOException {
         Connection connection = connectionFactory.createConnection();
         //1
         buildQueue(exchange, routingKey, queue, connection);
@@ -43,37 +44,42 @@ public class MQAccessBuilder {
         rabbitTemplate.setRoutingKey(routingKey);
         //2
         rabbitTemplate.setMessageConverter(new Jackson2JsonMessageConverter());
+        RetryCache retryCache = new RetryCache();
 
         //3
-        rabbitTemplate.setConfirmCallback(new RabbitTemplate.ConfirmCallback() {
-            @Override
-            public void confirm(CorrelationData correlationData, boolean ack, String cause) {
-               if (!ack) {
-                   log.info("send message failed: " + cause); //+ correlationData.toString());
-                   throw new RuntimeException("send error " + cause);
-               }
+        rabbitTemplate.setConfirmCallback((correlationData, ack, cause) -> {
+            if (!ack) {
+                log.info("send message failed: " + cause + correlationData.toString());
+            } else {
+                retryCache.del(correlationData.getId());
             }
+        });
+
+        rabbitTemplate.setReturnCallback((message, replyCode, replyText, tmpExchange, tmpRoutingKey) -> {
+            try {
+                Thread.sleep(Constants.ONE_SECOND);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+
+            log.info("send message failed: " + replyCode + " " + replyText);
+            rabbitTemplate.send(message);
         });
 
         //4
         return new MessageSender() {
+            {
+                retryCache.setSender(this);
+            }
+
             @Override
             public DetailRes send(Object message) {
                 try {
-                    rabbitTemplate.convertAndSend(message);
-                } catch (RuntimeException e) {
-                    e.printStackTrace();
-                    log.info("send failed " + e);
-
-                    try {
-                        //retry
-                        rabbitTemplate.convertAndSend(message);
-                    } catch (RuntimeException error) {
-                        error.printStackTrace();
-                        log.info("send failed again " + error);
-
-                        return new DetailRes(false, error.toString());
-                    }
+                    String id = retryCache.generateId();
+                    retryCache.add(id, message);
+                    rabbitTemplate.correlationConvertAndSend(message, new CorrelationData(id));
+                } catch (Exception e) {
+                    return new DetailRes(false, "");
                 }
 
                 return new DetailRes(true, "");
@@ -129,7 +135,9 @@ public class MQAccessBuilder {
                     if (detailRes.isSuccess()) {
                         channel.basicAck(delivery.getEnvelope().getDeliveryTag(), false);
                     } else {
-                        log.info("send message failed: " + detailRes.getErrMsg());
+                        //避免过多失败log
+                        Thread.sleep(Constants.ONE_SECOND);
+                        log.info("process message failed: " + detailRes.getErrMsg());
                         channel.basicNack(delivery.getEnvelope().getDeliveryTag(), false, true);
                     }
 
@@ -137,46 +145,34 @@ public class MQAccessBuilder {
                 } catch (InterruptedException e) {
                     e.printStackTrace();
                     return new DetailRes(false, "interrupted exception " + e.toString());
-                } catch (IOException e) {
-                    e.printStackTrace();
-                    retry(delivery, channel);
-                    log.info("io exception : " + e);
-
-                    return new DetailRes(false, "io exception " + e.toString());
-                } catch (ShutdownSignalException e) {
+                } catch (ShutdownSignalException | ConsumerCancelledException | IOException e) {
                     e.printStackTrace();
 
                     try {
                         channel.close();
-                    } catch (IOException io) {
-                        io.printStackTrace();
-                    } catch (TimeoutException timeout) {
-                        timeout.printStackTrace();
+                    } catch (IOException | TimeoutException ex) {
+                        ex.printStackTrace();
                     }
 
                     consumer = buildQueueConsumer(connection, queue);
 
-                    return new DetailRes(false, "shutdown exception " + e.toString());
+                    return new DetailRes(false, "shutdown or cancelled exception " + e.toString());
                 } catch (Exception e) {
                     e.printStackTrace();
                     log.info("exception : " + e);
-                    retry(delivery, channel);
+
+                    try {
+                        channel.close();
+                    } catch (IOException | TimeoutException ex) {
+                        ex.printStackTrace();
+                    }
+
+                    consumer = buildQueueConsumer(connection, queue);
 
                     return new DetailRes(false, "exception " + e.toString());
                 }
             }
         };
-    }
-
-    private void retry(QueueingConsumer.Delivery delivery, Channel channel) {
-        try {
-            if (null != delivery) {
-                channel.basicNack(delivery.getEnvelope().getDeliveryTag(), false, true);
-            }
-        } catch (IOException e) {
-            e.printStackTrace();
-            log.info("send io exception " + e);
-        }
     }
 
     private void buildQueue(String exchange, String routingKey,
@@ -195,27 +191,34 @@ public class MQAccessBuilder {
     }
 
     private QueueingConsumer buildQueueConsumer(Connection connection, String queue) {
-        Channel channel = connection.createChannel(false);
-        QueueingConsumer consumer = new QueueingConsumer(channel);
-
         try {
+            Channel channel = connection.createChannel(false);
+            QueueingConsumer consumer = new QueueingConsumer(channel);
+
             //通过 BasicQos 方法设置prefetchCount = 1。这样RabbitMQ就会使得每个Consumer在同一个时间点最多处理一个Message。
             //换句话说，在接收到该Consumer的ack前，他它不会将新的Message分发给它
             channel.basicQos(1);
             channel.basicConsume(queue, false, consumer);
-        } catch (IOException e) {
+
+            return consumer;
+        } catch (Exception e) {
             e.printStackTrace();
             log.info("build queue consumer error : " + e);
-        }
 
-        return consumer;
+            try {
+                Thread.sleep(Constants.ONE_SECOND);
+            } catch (InterruptedException inE) {
+                inE.printStackTrace();
+            }
+
+            return buildQueueConsumer(connection, queue);
+        }
     }
 
     //for test
     public int getMessageCount(final String queue) throws IOException {
         Connection connection = connectionFactory.createConnection();
         final Channel channel = connection.createChannel(false);
-
         final AMQP.Queue.DeclareOk declareOk = channel.queueDeclarePassive(queue);
 
         return declareOk.getMessageCount();
