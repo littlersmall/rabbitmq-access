@@ -1,9 +1,13 @@
 ![rabbitmq.png](http://upload-images.jianshu.io/upload_images/1397675-8f305b180a895baf.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
 
 **20161205 更新**
+
 1 增加topic模式
+
 2 原有的使用direct方式无需更改，本次为兼容性升级，增加了buildTopicMessageSender和buildTopicMessageConsumer方法
+
 3 ThreadPoolConsumer默认为direct方式，可以通过setType("topic")修改为topic模式
+
 ---
 
 
