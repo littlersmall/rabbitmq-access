@@ -1,7 +1,7 @@
 package com.littlersmall.rabbitmqaccess;
 
 import com.littlersmall.rabbitmqaccess.common.DetailRes;
-import lombok.extern.java.Log;
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.util.concurrent.ExecutorService;
@@ -10,7 +10,7 @@ import java.util.concurrent.Executors;
 /**
  * Created by littlersmall on 16/5/23.
  */
-@Log
+@Slf4j
 public class ThreadPoolConsumer<T> {
     private ExecutorService executor;
     private volatile boolean stop = false;
@@ -24,6 +24,7 @@ public class ThreadPoolConsumer<T> {
         String exchange;
         String routingKey;
         String queue;
+        String type = "direct";
         MessageProcess<T> messageProcess;
 
         public ThreadPoolConsumerBuilder<T> setThreadCount(int threadCount) {
@@ -62,6 +63,12 @@ public class ThreadPoolConsumer<T> {
             return this;
         }
 
+        public ThreadPoolConsumerBuilder<T> setType(String type) {
+            this.type = type;
+
+            return this;
+        }
+
         public ThreadPoolConsumerBuilder<T> setMessageProcess(MessageProcess<T> messageProcess) {
             this.messageProcess = messageProcess;
 
@@ -84,7 +91,7 @@ public class ThreadPoolConsumer<T> {
         for (int i = 0; i < infoHolder.threadCount; i++) {
             //1
             final MessageConsumer messageConsumer = infoHolder.mqAccessBuilder.buildMessageConsumer(infoHolder.exchange,
-                    infoHolder.routingKey, infoHolder.queue, infoHolder.messageProcess);
+                    infoHolder.routingKey, infoHolder.queue, infoHolder.messageProcess, infoHolder.type);
 
             executor.execute(new Runnable() {
                 @Override

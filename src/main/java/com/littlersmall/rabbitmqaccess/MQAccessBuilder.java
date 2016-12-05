@@ -28,14 +28,27 @@ public class MQAccessBuilder {
         this.connectionFactory = connectionFactory;
     }
 
+    public MessageSender buildMessageSender(final String exchange, final String routingKey, final String queue) throws IOException {
+        return buildMessageSender(exchange, routingKey, queue, "direct");
+    }
+
+    public MessageSender buildTopicMessageSender(final String exchange, final String routingKey) throws IOException {
+        return buildMessageSender(exchange, routingKey, null, "topic");
+    }
+
     //1 构造template, exchange, routingkey等
     //2 设置message序列化方法
     //3 设置发送确认
     //4 构造sender方法
-    public MessageSender buildMessageSender(final String exchange, final String routingKey, final String queue) throws IOException {
+    public MessageSender buildMessageSender(final String exchange, final String routingKey,
+                                            final String queue, final String type) throws IOException {
         Connection connection = connectionFactory.createConnection();
         //1
-        buildQueue(exchange, routingKey, queue, connection);
+        if (type.equals("direct")) {
+            buildQueue(exchange, routingKey, queue, connection, "direct");
+        } else if (type.equals("topic")) {
+            buildTopic(exchange, connection);
+        }
 
         final RabbitTemplate rabbitTemplate = new RabbitTemplate(connectionFactory);
 
@@ -87,15 +100,25 @@ public class MQAccessBuilder {
         };
     }
 
+    public <T> MessageConsumer buildMessageConsumer(String exchange, String routingKey, final String queue,
+                                                    final MessageProcess<T> messageProcess) throws IOException {
+        return buildMessageConsumer(exchange, routingKey, queue, messageProcess, "direct");
+    }
+
+    public <T> MessageConsumer buildTopicMessageConsumer(String exchange, String routingKey, final String queue,
+                                                         final MessageProcess<T> messageProcess) throws IOException {
+        return buildMessageConsumer(exchange, routingKey, queue, messageProcess, "topic");
+    }
+
     //1 创建连接和channel
     //2 设置message序列化方法
     //3 构造consumer
-    public <T> MessageConsumer buildMessageConsumer(String exchange, String routingKey,
-                                                    final String queue, final MessageProcess<T> messageProcess) throws IOException {
+    public <T> MessageConsumer buildMessageConsumer(String exchange, String routingKey, final String queue,
+                                                    final MessageProcess<T> messageProcess, String type) throws IOException {
         final Connection connection = connectionFactory.createConnection();
 
         //1
-        buildQueue(exchange, routingKey, queue, connection);
+        buildQueue(exchange, routingKey, queue, connection, type);
 
         //2
         final MessagePropertiesConverter messagePropertiesConverter = new DefaultMessagePropertiesConverter();
@@ -176,9 +199,15 @@ public class MQAccessBuilder {
     }
 
     private void buildQueue(String exchange, String routingKey,
-                            final String queue, Connection connection) throws IOException {
+                            final String queue, Connection connection, String type) throws IOException {
         Channel channel = connection.createChannel(false);
-        channel.exchangeDeclare(exchange, "direct", true, false, null);
+
+        if (type.equals("direct")) {
+            channel.exchangeDeclare(exchange, "direct", true, false, null);
+        } else if (type.equals("topic")) {
+            channel.exchangeDeclare(exchange, "topic", true, false, null);
+        }
+
         channel.queueDeclare(queue, true, false, false, null);
         channel.queueBind(queue, exchange, routingKey);
 
@@ -188,6 +217,11 @@ public class MQAccessBuilder {
             e.printStackTrace();
             log.info("close channel time out " + e);
         }
+    }
+
+    private void buildTopic(String exchange, Connection connection) throws IOException {
+        Channel channel = connection.createChannel(false);
+        channel.exchangeDeclare(exchange, "topic", true, false, null);
     }
 
     private QueueingConsumer buildQueueConsumer(Connection connection, String queue) {
