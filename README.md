@@ -1,5 +1,13 @@
 ![rabbitmq.png](http://upload-images.jianshu.io/upload_images/1397675-8f305b180a895baf.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
 
+**20161227 更新**
+
+1 bug fix: 将messageProcess包裹在try，catch中，避免队列中出现unack的死信息
+
+2 bug分析见http://www.jianshu.com/p/a7edc3322b44
+
+---
+
 **20161205 更新**
 
 1 增加topic模式
@@ -9,7 +17,6 @@
 3 ThreadPoolConsumer默认为direct方式，可以通过setType("topic")修改为topic模式
 
 ---
-
 
 **20160907 更新**
 
