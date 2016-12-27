@@ -157,7 +157,7 @@ public class MQAccessBuilder {
                     try {
                         detailRes = messageProcess.process(messageBean);
                     } catch (Exception e) {
-                        detailRes = new DetailRes(false, "process exception: e");
+                        detailRes = new DetailRes(false, "process exception: " + e);
                     }
 
                     //4
