@@ -1,5 +1,13 @@
 ![rabbitmq.png](http://upload-images.jianshu.io/upload_images/1397675-8f305b180a895baf.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
 
+**20170510 更新**
+
+1 增加线程池consumer优雅退出机制Runtime.getRuntime().addShutdownHook
+
+2 修改部分log输出方式，将原来的 log.info("exceptin:" + e) 修复为 log.info("exception: ", e)
+
+---
+
 **20161227 更新**
 
 1 bug fix: 将messageProcess包裹在try，catch中，避免队列中出现unack的死信息
