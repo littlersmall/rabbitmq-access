@@ -41,6 +41,6 @@ public class ConsumerExample {
         ApplicationContext ac = new ClassPathXmlApplicationContext("applicationContext.xml");
         ConsumerExample consumerExample = ac.getBean(ConsumerExample.class);
 
-
+        consumerExample.consume();
     }
 }

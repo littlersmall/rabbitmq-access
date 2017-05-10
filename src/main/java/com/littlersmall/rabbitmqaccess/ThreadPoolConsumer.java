@@ -1,11 +1,14 @@
 package com.littlersmall.rabbitmqaccess;
 
+import com.littlersmall.rabbitmqaccess.common.Constants;
 import com.littlersmall.rabbitmqaccess.common.DetailRes;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+
+import org.omg.SendingContext.RunTime;
 
 /**
  * Created by littlersmall on 16/5/23.
@@ -106,7 +109,7 @@ public class ThreadPoolConsumer<T> {
                                     Thread.sleep(infoHolder.intervalMils);
                                 } catch (InterruptedException e) {
                                     e.printStackTrace();
-                                    log.info("interrupt " + e);
+                                    log.info("interrupt ", e);
                                 }
                             }
 
@@ -115,15 +118,23 @@ public class ThreadPoolConsumer<T> {
                             }
                         } catch (Exception e) {
                             e.printStackTrace();
-                            log.info("run exception " + e);
+                            log.info("run exception ", e);
                         }
                     }
                 }
             });
         }
+
+        Runtime.getRuntime().addShutdownHook(new Thread(this::stop));
     }
 
     public void stop() {
         this.stop = true;
+
+        try {
+            Thread.sleep(Constants.ONE_SECOND);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
     }
 }

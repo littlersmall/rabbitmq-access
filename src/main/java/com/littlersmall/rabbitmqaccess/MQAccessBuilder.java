@@ -188,7 +188,7 @@ public class MQAccessBuilder {
                     return new DetailRes(false, "shutdown or cancelled exception " + e.toString());
                 } catch (Exception e) {
                     e.printStackTrace();
-                    log.info("exception : " + e);
+                    log.info("exception : ", e);
 
                     try {
                         channel.close();
@@ -221,7 +221,7 @@ public class MQAccessBuilder {
             channel.close();
         } catch (TimeoutException e) {
             e.printStackTrace();
-            log.info("close channel time out " + e);
+            log.info("close channel time out ", e);
         }
     }
 
@@ -243,7 +243,7 @@ public class MQAccessBuilder {
             return consumer;
         } catch (Exception e) {
             e.printStackTrace();
-            log.info("build queue consumer error : " + e);
+            log.info("build queue consumer error : ", e);
 
             try {
                 Thread.sleep(Constants.ONE_SECOND);
