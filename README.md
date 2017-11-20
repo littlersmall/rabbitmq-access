@@ -4,6 +4,8 @@
 
 1 改进一些细节：遍历map时基于entry，增加一定的效率
 
+---
+
 **20170510 更新**
 
 1 增加线程池consumer优雅退出机制Runtime.getRuntime().addShutdownHook
