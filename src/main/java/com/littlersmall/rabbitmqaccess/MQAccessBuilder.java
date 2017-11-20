@@ -138,7 +138,7 @@ public class MQAccessBuilder {
             //3 处理数据
             //4 手动发送ack确认
             public DetailRes consume() {
-                QueueingConsumer.Delivery delivery = null;
+                QueueingConsumer.Delivery delivery;
                 Channel channel = consumer.getChannel();
 
                 try {

@@ -57,18 +57,18 @@ public class RetryCache {
 
                 long now = System.currentTimeMillis();
 
-                for (String key : map.keySet()) {
-                    MessageWithTime messageWithTime = map.get(key);
+                for (Map.Entry<String, MessageWithTime> entry : map.entrySet()) {
+                    MessageWithTime messageWithTime = entry.getValue();
 
                     if (null != messageWithTime) {
                         if (messageWithTime.getTime() + 3 * Constants.VALID_TIME < now) {
                             log.info("send message failed after 3 min " + messageWithTime);
-                            del(key);
+                            del(entry.getKey());
                         } else if (messageWithTime.getTime() + Constants.VALID_TIME < now) {
                             DetailRes detailRes = sender.send(messageWithTime.getMessage());
 
                             if (detailRes.isSuccess()) {
-                                del(key);
+                                del(entry.getKey());
                             }
                         }
                     }

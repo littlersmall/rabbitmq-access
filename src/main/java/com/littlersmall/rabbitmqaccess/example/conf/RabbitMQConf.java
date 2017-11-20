@@ -26,7 +26,7 @@ public class RabbitMQConf {
         }
 
         String ip = properties.getProperty("ip");
-        int port = Integer.valueOf(properties.getProperty("port"));
+        int port = Integer.parseInt(properties.getProperty("port"));
         String userName = properties.getProperty("user_name");
         String password = properties.getProperty("password");
 
