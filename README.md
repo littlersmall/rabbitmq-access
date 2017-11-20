@@ -1,5 +1,9 @@
 ![rabbitmq.png](http://upload-images.jianshu.io/upload_images/1397675-8f305b180a895baf.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
 
+**20171120 更新**
+
+1 改进一些细节：遍历map时基于entry，增加一定的效率
+
 **20170510 更新**
 
 1 增加线程池consumer优雅退出机制Runtime.getRuntime().addShutdownHook
