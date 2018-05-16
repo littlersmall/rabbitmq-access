@@ -1,9 +1,8 @@
 package com.littlersmall.rabbitmqaccess;
 
-import com.littlersmall.rabbitmqaccess.common.Constants;
-import com.littlersmall.rabbitmqaccess.common.DetailRes;
-import com.rabbitmq.client.*;
-import lombok.extern.slf4j.Slf4j;
+import java.io.IOException;
+import java.util.concurrent.TimeoutException;
+
 import org.springframework.amqp.core.Message;
 import org.springframework.amqp.rabbit.connection.Connection;
 import org.springframework.amqp.rabbit.connection.ConnectionFactory;
@@ -14,8 +13,16 @@ import org.springframework.amqp.rabbit.support.MessagePropertiesConverter;
 import org.springframework.amqp.support.converter.Jackson2JsonMessageConverter;
 import org.springframework.amqp.support.converter.MessageConverter;
 
-import java.io.IOException;
-import java.util.concurrent.TimeoutException;
+import com.littlersmall.rabbitmqaccess.common.Constants;
+import com.littlersmall.rabbitmqaccess.common.DetailRes;
+import com.littlersmall.rabbitmqaccess.common.MessageWithTime;
+import com.rabbitmq.client.AMQP;
+import com.rabbitmq.client.Channel;
+import com.rabbitmq.client.ConsumerCancelledException;
+import com.rabbitmq.client.QueueingConsumer;
+import com.rabbitmq.client.ShutdownSignalException;
+
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * Created by littlersmall on 16/5/11.
@@ -64,7 +71,7 @@ public class MQAccessBuilder {
             if (!ack) {
                 log.info("send message failed: " + cause + correlationData.toString());
             } else {
-                retryCache.del(correlationData.getId());
+                retryCache.del(Long.valueOf(correlationData.getId()));
             }
         });
 
@@ -87,10 +94,18 @@ public class MQAccessBuilder {
 
             @Override
             public DetailRes send(Object message) {
-                try {
-                    String id = retryCache.generateId();
-                    retryCache.add(id, message);
-                    rabbitTemplate.correlationConvertAndSend(message, new CorrelationData(id));
+                long id = retryCache.generateId();
+                long time = System.currentTimeMillis();
+
+                return send(new MessageWithTime(id, time, message));
+            }
+
+            @Override
+            public DetailRes send(MessageWithTime messageWithTime) {
+                 try {
+                    retryCache.add(messageWithTime);
+                    rabbitTemplate.correlationConvertAndSend(messageWithTime.getMessage(),
+                            new CorrelationData(String.valueOf(messageWithTime.getId())));
                 } catch (Exception e) {
                     return new DetailRes(false, "");
                 }

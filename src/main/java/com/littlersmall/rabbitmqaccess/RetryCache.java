@@ -1,15 +1,14 @@
 package com.littlersmall.rabbitmqaccess;
 
-import com.littlersmall.rabbitmqaccess.common.Constants;
-import com.littlersmall.rabbitmqaccess.common.DetailRes;
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
+
+import com.littlersmall.rabbitmqaccess.common.Constants;
+import com.littlersmall.rabbitmqaccess.common.DetailRes;
+import com.littlersmall.rabbitmqaccess.common.MessageWithTime;
+
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * Created by littlersmall on 16/9/5.
@@ -18,31 +17,23 @@ import java.util.concurrent.atomic.AtomicLong;
 public class RetryCache {
     private MessageSender sender;
     private boolean stop = false;
-    private Map<String, MessageWithTime> map = new ConcurrentHashMap<>();
+    private Map<Long, MessageWithTime> map = new ConcurrentHashMap<>();
     private AtomicLong id = new AtomicLong();
-
-    @NoArgsConstructor
-    @AllArgsConstructor
-    @Data
-    private static class MessageWithTime {
-        long time;
-        Object message;
-    }
 
     public void setSender(MessageSender sender) {
         this.sender = sender;
         startRetry();
     }
 
-    public String generateId() {
-        return "" + id.incrementAndGet();
+    public long generateId() {
+        return id.incrementAndGet();
     }
 
-    public void add(String id, Object message) {
-        map.put(id, new MessageWithTime(System.currentTimeMillis(), message));
+    public void add(MessageWithTime messageWithTime) {
+        map.putIfAbsent(messageWithTime.getId(), messageWithTime);
     }
 
-    public void del(String id) {
+    public void del(long id) {
         map.remove(id);
     }
 
@@ -57,18 +48,18 @@ public class RetryCache {
 
                 long now = System.currentTimeMillis();
 
-                for (Map.Entry<String, MessageWithTime> entry : map.entrySet()) {
+                for (Map.Entry<Long, MessageWithTime> entry : map.entrySet()) {
                     MessageWithTime messageWithTime = entry.getValue();
 
                     if (null != messageWithTime) {
                         if (messageWithTime.getTime() + 3 * Constants.VALID_TIME < now) {
-                            log.info("send message failed after 3 min " + messageWithTime);
+                            log.info("send message {} failed after 3 min ", messageWithTime);
                             del(entry.getKey());
                         } else if (messageWithTime.getTime() + Constants.VALID_TIME < now) {
-                            DetailRes detailRes = sender.send(messageWithTime.getMessage());
+                            DetailRes res = sender.send(messageWithTime);
 
-                            if (detailRes.isSuccess()) {
-                                del(entry.getKey());
+                            if (!res.isSuccess()) {
+                                log.info("retry send message failed {} errMsg {}", messageWithTime, res.getErrMsg());
                             }
                         }
                     }
