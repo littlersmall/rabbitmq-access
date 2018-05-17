@@ -1,5 +1,13 @@
 ![rabbitmq.png](http://upload-images.jianshu.io/upload_images/1397675-8f305b180a895baf.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
 
+**20180517 更新**
+
+1 retryCache重构，解决rabbitmq挂掉时消息积压的问题
+
+2 部分细节改进
+
+---
+
 **20171120 更新**
 
 1 改进一些细节：遍历map时基于entry，增加一定的效率
