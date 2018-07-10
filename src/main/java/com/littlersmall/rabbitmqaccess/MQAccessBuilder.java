@@ -19,7 +19,7 @@ import com.littlersmall.rabbitmqaccess.common.MessageWithTime;
 import com.rabbitmq.client.AMQP;
 import com.rabbitmq.client.Channel;
 import com.rabbitmq.client.ConsumerCancelledException;
-import com.rabbitmq.client.QueueingConsumer;
+import com.rabbitmq.client.GetResponse;
 import com.rabbitmq.client.ShutdownSignalException;
 
 import lombok.extern.slf4j.Slf4j;
@@ -102,7 +102,7 @@ public class MQAccessBuilder {
 
             @Override
             public DetailRes send(MessageWithTime messageWithTime) {
-                 try {
+                try {
                     retryCache.add(messageWithTime);
                     rabbitTemplate.correlationConvertAndSend(messageWithTime.getMessage(),
                             new CorrelationData(String.valueOf(messageWithTime.getId())));
@@ -127,9 +127,9 @@ public class MQAccessBuilder {
 
     //1 创建连接和channel
     //2 设置message序列化方法
-    //3 构造consumer
+    //3 consume
     public <T> MessageConsumer buildMessageConsumer(String exchange, String routingKey, final String queue,
-                                                    final MessageProcess<T> messageProcess, String type) throws IOException {
+                                                     final MessageProcess<T> messageProcess, String type) throws IOException {
         final Connection connection = connectionFactory.createConnection();
 
         //1
@@ -141,26 +141,29 @@ public class MQAccessBuilder {
 
         //3
         return new MessageConsumer() {
-            QueueingConsumer consumer;
+            Channel channel;
 
             {
-                consumer = buildQueueConsumer(connection, queue);
+                channel = connection.createChannel(false);
             }
 
-            @Override
-            //1 通过delivery获取原始数据
+            //1 通过basicGet获取原始数据
             //2 将原始数据转换为特定类型的包
             //3 处理数据
             //4 手动发送ack确认
+            @Override
             public DetailRes consume() {
-                QueueingConsumer.Delivery delivery;
-                Channel channel = consumer.getChannel();
-
                 try {
                     //1
-                    delivery = consumer.nextDelivery();
-                    Message message = new Message(delivery.getBody(),
-                            messagePropertiesConverter.toMessageProperties(delivery.getProperties(), delivery.getEnvelope(), "UTF-8"));
+                    GetResponse response = channel.basicGet(queue, false);
+
+                    while (response == null) {
+                        response = channel.basicGet(queue, false);
+                        Thread.sleep(Constants.ONE_SECOND);
+                    }
+
+                    Message message = new Message(response.getBody(),
+                            messagePropertiesConverter.toMessageProperties(response.getProps(), response.getEnvelope(), "UTF-8"));
 
                     //2
                     @SuppressWarnings("unchecked")
@@ -172,33 +175,34 @@ public class MQAccessBuilder {
                     try {
                         detailRes = messageProcess.process(messageBean);
                     } catch (Exception e) {
+                        log.error("exception", e);
                         detailRes = new DetailRes(false, "process exception: " + e);
                     }
 
                     //4
                     if (detailRes.isSuccess()) {
-                        channel.basicAck(delivery.getEnvelope().getDeliveryTag(), false);
+                        channel.basicAck(response.getEnvelope().getDeliveryTag(), false);
                     } else {
                         //避免过多失败log
                         Thread.sleep(Constants.ONE_SECOND);
                         log.info("process message failed: " + detailRes.getErrMsg());
-                        channel.basicNack(delivery.getEnvelope().getDeliveryTag(), false, true);
+                        channel.basicNack(response.getEnvelope().getDeliveryTag(), false, true);
                     }
 
                     return detailRes;
                 } catch (InterruptedException e) {
-                    e.printStackTrace();
+                    log.error("exception", e);
                     return new DetailRes(false, "interrupted exception " + e.toString());
                 } catch (ShutdownSignalException | ConsumerCancelledException | IOException e) {
-                    e.printStackTrace();
+                    log.error("exception", e);
 
                     try {
                         channel.close();
                     } catch (IOException | TimeoutException ex) {
-                        ex.printStackTrace();
+                        log.error("exception", ex);
                     }
 
-                    consumer = buildQueueConsumer(connection, queue);
+                    channel = connection.createChannel(false);
 
                     return new DetailRes(false, "shutdown or cancelled exception " + e.toString());
                 } catch (Exception e) {
@@ -211,7 +215,7 @@ public class MQAccessBuilder {
                         ex.printStackTrace();
                     }
 
-                    consumer = buildQueueConsumer(connection, queue);
+                    channel = connection.createChannel(false);
 
                     return new DetailRes(false, "exception " + e.toString());
                 }
@@ -235,7 +239,6 @@ public class MQAccessBuilder {
         try {
             channel.close();
         } catch (TimeoutException e) {
-            e.printStackTrace();
             log.info("close channel time out ", e);
         }
     }
@@ -243,31 +246,6 @@ public class MQAccessBuilder {
     private void buildTopic(String exchange, Connection connection) throws IOException {
         Channel channel = connection.createChannel(false);
         channel.exchangeDeclare(exchange, "topic", true, false, null);
-    }
-
-    private QueueingConsumer buildQueueConsumer(Connection connection, String queue) {
-        try {
-            Channel channel = connection.createChannel(false);
-            QueueingConsumer consumer = new QueueingConsumer(channel);
-
-            //通过 BasicQos 方法设置prefetchCount = 1。这样RabbitMQ就会使得每个Consumer在同一个时间点最多处理一个Message。
-            //换句话说，在接收到该Consumer的ack前，他它不会将新的Message分发给它
-            channel.basicQos(1);
-            channel.basicConsume(queue, false, consumer);
-
-            return consumer;
-        } catch (Exception e) {
-            e.printStackTrace();
-            log.info("build queue consumer error : ", e);
-
-            try {
-                Thread.sleep(Constants.ONE_SECOND);
-            } catch (InterruptedException inE) {
-                inE.printStackTrace();
-            }
-
-            return buildQueueConsumer(connection, queue);
-        }
     }
 
     //for test

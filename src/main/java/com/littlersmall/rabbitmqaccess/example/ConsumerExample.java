@@ -30,7 +30,7 @@ public class ConsumerExample {
     @PostConstruct
     public void init() throws IOException, TimeoutException {
         MQAccessBuilder mqAccessBuilder = new MQAccessBuilder(connectionFactory);
-        messageConsumer = mqAccessBuilder.buildMessageConsumer(EXCHANGE, ROUTING, QUEUE, new UserMessageProcess());
+        messageConsumer = mqAccessBuilder.buildMessageConsumer(EXCHANGE, ROUTING, QUEUE, new UserMessageProcess(), "direct");
     }
 
     public DetailRes consume() {
