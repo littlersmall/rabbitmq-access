@@ -1,5 +1,15 @@
 ![rabbitmq.png](http://upload-images.jianshu.io/upload_images/1397675-8f305b180a895baf.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
 
+**20180710 更新**
+
+1 升级spring-rabbit版本，升级到最新版本
+
+2 去除对QueueConsumer的使用，改为使用basicGet方法(消费效率和原来的方式对比，有微弱提升)
+
+3 改进一些打log的细节
+
+---
+
 **20180517 更新**
 
 1 retryCache重构，解决rabbitmq挂掉时消息积压的问题
