@@ -2,6 +2,7 @@ package com.littlersmall.rabbitmqaccess;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.atomic.AtomicLong;
 
 import com.littlersmall.rabbitmqaccess.common.Constants;
@@ -17,7 +18,7 @@ import lombok.extern.slf4j.Slf4j;
 public class RetryCache {
     private MessageSender sender;
     private boolean stop = false;
-    private Map<Long, MessageWithTime> map = new ConcurrentHashMap<>();
+    private Map<Long, MessageWithTime> map = new ConcurrentSkipListMap<>();
     private AtomicLong id = new AtomicLong();
 
     public void setSender(MessageSender sender) {

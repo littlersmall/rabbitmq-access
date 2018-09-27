@@ -206,7 +206,6 @@ public class MQAccessBuilder {
 
                     return new DetailRes(false, "shutdown or cancelled exception " + e.toString());
                 } catch (Exception e) {
-                    e.printStackTrace();
                     log.info("exception : ", e);
 
                     try {
