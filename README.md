@@ -1,5 +1,17 @@
 ![rabbitmq.png](http://upload-images.jianshu.io/upload_images/1397675-8f305b180a895baf.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
 
+**20180927 更新**
+
+升级 retryCache的容器，修改为 ConcurrentSkipListMap
+
+1 retry的时候按先后顺序尝试
+
+2 hashMap无法自动缩容，在rabbitmq出现问题时，map造成积压，等问题恢复后，map的多余空间无法自动释放，而SkipListMap可以完美避开这个问题
+
+3 在大量插入删除时，ShipList的效率更高
+
+---
+
 **20180710 更新**
 
 1 升级spring-rabbit版本，升级到最新版本
