@@ -8,7 +8,7 @@
 
 2 hashMap无法自动缩容，在rabbitmq出现问题时，map造成积压，等问题恢复后，map的多余空间无法自动释放，而SkipListMap可以完美避开这个问题
 
-3 在大量插入删除时，ShipList的效率更高
+3 在大量插入删除时，SkipList的效率更高
 
 ---
 
